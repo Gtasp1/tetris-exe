@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
 <title>TETRIS.EXE</title>
 <style>
 :root{--bg:#050805;--fg:#39ff14;--dim:#1c7a0c;--panel:#0a120a;--warn:#ff3b5c;--amb:#ffb000;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px);color-scheme:dark}
@@ -26,7 +26,7 @@ canvas{background:#000;border:1px solid var(--fg);display:block}
 #ov{position:absolute;inset:0;background:rgba(0,0,0,.88);display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:10px;cursor:pointer}
 #ov pre{margin:0 0 10px;font-size:11px;text-align:left}
 .blink{animation:b 1s steps(2) infinite}@keyframes b{50%{opacity:0}}
-.tc{display:none;grid-template-columns:repeat(5,1fr);gap:6px;width:100%;max-width:340px;margin:0 auto 10px}
+.tc{display:none;grid-template-columns:repeat(6,1fr);gap:6px;width:100%;max-width:480px;margin:0 auto 10px}
 .tc button{background:#000;color:var(--fg);border:1px solid var(--fg);font:inherit;padding:12px 0;border-radius:2px}
 @media (pointer:coarse){.tc{display:grid}}
 body{--cor:0}
@@ -35,6 +35,25 @@ body{--cor:0}
 body.tear .win{animation:tear .4s steps(3)}
 body.frz{cursor:wait}body.frz .win{filter:grayscale(.9) contrast(1.5)}
 #boot{white-space:pre-wrap;max-width:260px}
+html,body{overscroll-behavior:none}
+body{-webkit-user-select:none;user-select:none}
+.tc button{touch-action:manipulation;-webkit-tap-highlight-color:transparent}
+@media (max-width:700px){
+body{min-height:0}
+.win{margin:0;max-width:none;border-width:0 0 1px;height:calc(100dvh - env(safe-area-inset-top,0px) - env(safe-area-inset-bottom,0px));display:flex;flex-direction:column}
+.main{display:grid;grid-template-columns:1fr auto 1fr;gap:4px;padding:4px;align-content:center;align-items:start;flex:1;min-height:0}
+.col{display:contents}
+.km{display:none}
+.hb{grid-area:1/1}.sb{grid-area:2/1}.cv{grid-area:1/2/4/3}.nb{grid-area:1/3}.lg{grid-area:4/1/5/4}
+.box{padding:3px;font-size:10px}.box h3{font-size:9px;margin-bottom:2px}
+.lg h3{display:none}#log{height:48px;font-size:10px}
+.stat{display:block}.stat span:last-child{display:block;font-size:13px;text-align:right}
+canvas#hold,canvas#nx{width:100%;height:auto}
+#g{width:auto;height:min(128vw,calc(100dvh - 190px - env(safe-area-inset-top,0px) - env(safe-area-inset-bottom,0px)))}
+#boot{font-size:10px;max-width:100%}
+.tc{display:grid;max-width:none;width:calc(100% - 8px);margin:auto 4px 6px}
+.tc button{padding:18px 0;font-size:20px}
+}
 body.blk #g{opacity:0}
 @keyframes tear{0%{transform:translateX(-14px) skewX(8deg);clip-path:inset(10% 0 60% 0)}33%{transform:translateX(18px);clip-path:inset(50% 0 20% 0)}66%{transform:translateX(-8px) skewX(-6deg);clip-path:inset(0 0 0 0);filter:invert(1)}100%{transform:none}}
 .dlg{position:fixed;z-index:50;width:250px;background:#c0c0c0;color:#000;border:2px outset #fff;font:12px Tahoma,Arial,sans-serif;text-shadow:none;padding:2px}
@@ -47,25 +66,25 @@ body.blk #g{opacity:0}
 <div class="bar"><span id="ttl">C:\SYS32\TETRIS.EXE</span><span id="clk">[ _ ] [ X ]</span></div>
 <div class="main">
  <div class="col">
-  <div class="box"><h3>&gt; HOLD.BUF</h3><canvas id="hold" width="100" height="80"></canvas></div>
-  <div class="box"><h3>&gt; SYS.STATS</h3>
+  <div class="box hb"><h3>&gt; HOLD.BUF</h3><canvas id="hold" width="100" height="80"></canvas></div>
+  <div class="box sb"><h3>&gt; SYS.STATS</h3>
    <div class="stat"><span>SCORE</span><span id="sc">0</span></div>
    <div class="stat"><span>LINES</span><span id="ln">0</span></div>
    <div class="stat"><span>LEVEL</span><span id="lv">1</span></div>
    <div class="stat"><span>HI</span><span id="hi">0</span></div></div>
-  <div class="box"><h3>&gt; KEYMAP</h3>
+  <div class="box km"><h3>&gt; KEYMAP</h3>
    <span class="k">←→</span> mover<br><span class="k">↑ / X</span> rotar<br><span class="k">Z</span> rotar inv.<br><span class="k">↓</span> soft drop<br><span class="k">ESPACIO</span> hard drop<br><span class="k">C</span> hold<br><span class="k">P</span> pausa · <span class="k">M</span> mute</div>
  </div>
- <div style="position:relative">
+ <div class="cv" style="position:relative">
   <canvas id="g" width="280" height="560"></canvas>
   <div id="ov"><pre id="boot"></pre><div class="blink" id="prompt"></div></div>
  </div>
  <div class="col">
-  <div class="box"><h3>&gt; NEXT.QUEUE</h3><canvas id="nx" width="100" height="200"></canvas></div>
-  <div class="box"><h3>&gt; KERNEL.LOG</h3><div id="log"></div></div>
+  <div class="box nb"><h3>&gt; NEXT.QUEUE</h3><canvas id="nx" width="100" height="200"></canvas></div>
+  <div class="box lg"><h3>&gt; KERNEL.LOG</h3><div id="log"></div></div>
  </div>
 </div>
-<div class="tc"><button data-a="l">◄</button><button data-a="r">►</button><button data-a="rot">⟳</button><button data-a="d">▼</button><button data-a="hd">⤓</button></div>
+<div class="tc"><button data-a="l">◄</button><button data-a="r">►</button><button data-a="rot">⟳</button><button data-a="d">▼</button><button data-a="hd">⤓</button><button data-a="hold">⇄</button></div>
 </div>
 <script>
 const C=10,R=20,S=28,$=id=>document.getElementById(id);
@@ -208,7 +227,10 @@ function act(a){if(!started||over||frz>performance.now())return;if(a==='pause'){
 document.addEventListener('keydown',e=>{const k=e.key;if(k==='Enter'&&(!started||over)){begin();e.preventDefault();return}if(k==='m'||k==='M'){setMute();return}
  const map={ArrowLeft:'l',ArrowRight:'r',ArrowUp:'rot',x:'rot',X:'rot',z:'rotInv',Z:'rotInv',ArrowDown:'d',' ':'hd',c:'hold',C:'hold',p:'pause',P:'pause'};if(map[k]){e.preventDefault();act(map[k])}});
 $('ov').addEventListener('click',()=>{if(!started||over)begin()});
-document.querySelectorAll('.tc button').forEach(b=>b.addEventListener('click',()=>act(b.dataset.a)));
+document.querySelectorAll('.tc button').forEach(b=>{let ti,tm;const a=b.dataset.a,rp=a==='l'||a==='r'||a==='d',stop=()=>{clearTimeout(tm);clearInterval(ti)};
+ b.addEventListener('pointerdown',e=>{e.preventDefault();stop();act(a);if(rp)tm=setTimeout(()=>{ti=setInterval(()=>act(a),90)},220)});
+ ['pointerup','pointerleave','pointercancel'].forEach(ev=>b.addEventListener(ev,stop));
+ b.addEventListener('contextmenu',e=>e.preventDefault())});
 setInterval(()=>{const d=new Date();$('clk').textContent=d.toLocaleTimeString('es-ES')+'  [ _ ] [ X ]'},1000);
 board=Array.from({length:R},()=>Array(C).fill(0));queue=['I','T','L'];hold=null;bootSeq();requestAnimationFrame(loop);
 </script>
