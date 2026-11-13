@@ -1,0 +1,216 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>TETRIS.EXE</title>
+<style>
+:root{--bg:#050805;--fg:#39ff14;--dim:#1c7a0c;--panel:#0a120a;--warn:#ff3b5c;--amb:#ffb000;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px);color-scheme:dark}
+@media (prefers-color-scheme:dark){:root{--bg:#050805}}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--fg);font:14px/1.4 "Courier New",Consolas,monospace;min-height:100vh;text-shadow:0 0 6px rgba(57,255,20,.55)}
+body::after{content:"";position:fixed;inset:0;pointer-events:none;background:repeating-linear-gradient(0deg,rgba(0,0,0,.28) 0 1px,transparent 1px 3px);animation:fl 6s infinite}
+@keyframes fl{0%,100%{opacity:.9}50%{opacity:1}92%{opacity:.6}}
+.win{max-width:860px;margin:10px auto;border:1px solid var(--fg);box-shadow:0 0 18px rgba(57,255,20,.35);background:var(--panel)}
+.bar{background:var(--fg);color:#021002;padding:3px 8px;display:flex;justify-content:space-between;font-weight:bold;text-shadow:none}
+.main{display:flex;flex-wrap:wrap;gap:10px;padding:10px;justify-content:center}
+.col{width:200px;display:flex;flex-direction:column;gap:8px}
+.box{border:1px solid var(--dim);padding:6px}
+.box h3{margin:0 0 4px;font-size:12px;color:var(--amb);text-shadow:none}
+canvas{background:#000;border:1px solid var(--fg);display:block}
+#log{height:120px;overflow:hidden;font-size:11px;color:var(--dim);text-shadow:none}
+#log div:last-child{color:var(--fg)}
+.k{color:var(--amb);text-shadow:none}
+.stat{display:flex;justify-content:space-between}
+#ov{position:absolute;inset:0;background:rgba(0,0,0,.88);display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:10px;cursor:pointer}
+#ov pre{margin:0 0 10px;font-size:11px;text-align:left}
+.blink{animation:b 1s steps(2) infinite}@keyframes b{50%{opacity:0}}
+.tc{display:none;grid-template-columns:repeat(5,1fr);gap:6px;width:100%;max-width:340px;margin:0 auto 10px}
+.tc button{background:#000;color:var(--fg);border:1px solid var(--fg);font:inherit;padding:12px 0;border-radius:2px}
+@media (pointer:coarse){.tc{display:grid}}
+body{--cor:0}
+.win{filter:hue-rotate(calc(var(--cor)*-115deg))}
+#g{filter:drop-shadow(calc(var(--cor)*4px) 0 0 rgba(255,0,0,.55)) drop-shadow(calc(var(--cor)*-4px) 0 0 rgba(0,255,255,.45))}
+body.tear .win{animation:tear .4s steps(3)}
+body.frz{cursor:wait}body.frz .win{filter:grayscale(.9) contrast(1.5)}
+#boot{white-space:pre-wrap;max-width:260px}
+body.blk #g{opacity:0}
+@keyframes tear{0%{transform:translateX(-14px) skewX(8deg);clip-path:inset(10% 0 60% 0)}33%{transform:translateX(18px);clip-path:inset(50% 0 20% 0)}66%{transform:translateX(-8px) skewX(-6deg);clip-path:inset(0 0 0 0);filter:invert(1)}100%{transform:none}}
+.dlg{position:fixed;z-index:50;width:250px;background:#c0c0c0;color:#000;border:2px outset #fff;font:12px Tahoma,Arial,sans-serif;text-shadow:none;padding:2px}
+.dt{background:#000080;color:#fff;padding:2px 4px;display:flex;justify-content:space-between}
+.dlg p{margin:10px 8px}.dlg button{display:block;margin:0 auto 8px;padding:2px 24px}
+</style>
+</head>
+<body>
+<div class="win">
+<div class="bar"><span id="ttl">C:\SYS32\TETRIS.EXE</span><span id="clk">[ _ ] [ X ]</span></div>
+<div class="main">
+ <div class="col">
+  <div class="box"><h3>&gt; HOLD.BUF</h3><canvas id="hold" width="100" height="80"></canvas></div>
+  <div class="box"><h3>&gt; SYS.STATS</h3>
+   <div class="stat"><span>SCORE</span><span id="sc">0</span></div>
+   <div class="stat"><span>LINES</span><span id="ln">0</span></div>
+   <div class="stat"><span>LEVEL</span><span id="lv">1</span></div>
+   <div class="stat"><span>HI</span><span id="hi">0</span></div></div>
+  <div class="box"><h3>&gt; KEYMAP</h3>
+   <span class="k">←→</span> mover<br><span class="k">↑ / X</span> rotar<br><span class="k">Z</span> rotar inv.<br><span class="k">↓</span> soft drop<br><span class="k">ESPACIO</span> hard drop<br><span class="k">C</span> hold<br><span class="k">P</span> pausa · <span class="k">M</span> mute</div>
+ </div>
+ <div style="position:relative">
+  <canvas id="g" width="280" height="560"></canvas>
+  <div id="ov"><pre id="boot"></pre><div class="blink" id="prompt"></div></div>
+ </div>
+ <div class="col">
+  <div class="box"><h3>&gt; NEXT.QUEUE</h3><canvas id="nx" width="100" height="200"></canvas></div>
+  <div class="box"><h3>&gt; KERNEL.LOG</h3><div id="log"></div></div>
+ </div>
+</div>
+<div class="tc"><button data-a="l">◄</button><button data-a="r">►</button><button data-a="rot">⟳</button><button data-a="d">▼</button><button data-a="hd">⤓</button></div>
+</div>
+<script>
+const C=10,R=20,S=28,$=id=>document.getElementById(id);
+const g=$('g').getContext('2d'),hc=$('hold').getContext('2d'),nc=$('nx').getContext('2d');
+const SH={I:[[0,0,0,0],[1,1,1,1],[0,0,0,0],[0,0,0,0]],O:[[1,1],[1,1]],T:[[0,1,0],[1,1,1],[0,0,0]],S:[[0,1,1],[1,1,0],[0,0,0]],Z:[[1,1,0],[0,1,1],[0,0,0]],J:[[1,0,0],[1,1,1],[0,0,0]],L:[[0,0,1],[1,1,1],[0,0,0]]};
+const COL={I:'#00e5ff',O:'#ffe600',T:'#c77dff',S:'#39ff14',Z:'#ff3b5c',J:'#4d7cff',L:'#ff9100'};
+const HEX={I:'0x1',O:'0x2',T:'0x3',S:'0x4',Z:'0x5',J:'0x6',L:'0x7'};
+let board,cur,hold,canHold,queue,bag,score,lines,level,over,paused,started=false,last=0,acc=0,hi=+(()=>{try{return localStorage.getItem('hi')||0}catch(e){return 0}})();
+$('hi').textContent=hi;
+const rot=m=>m[0].map((_,i)=>m.map(r=>r[i]).reverse());
+const rotI=m=>m[0].map((_,i)=>m.map(r=>r[r.length-1-i]));
+function log(t){const l=$('log'),d=document.createElement('div');d.textContent='> '+t;l.appendChild(d);while(l.children.length>9)l.removeChild(l.firstChild)}
+function refill(){const b=Object.keys(SH);for(let i=b.length-1;i>0;i--){const j=Math.random()*(i+1)|0;[b[i],b[j]]=[b[j],b[i]]}bag=b}
+function pull(){if(!bag||!bag.length)refill();return bag.pop()}
+function spawn(t){cur={t,m:SH[t].map(r=>[...r]),x:(C-SH[t][0].length)/2|0,y:0};canHold=true;if(hit(cur.m,cur.x,cur.y)){end()}}
+function hit(m,x,y){for(let r=0;r<m.length;r++)for(let c=0;c<m[r].length;c++)if(m[r][c]){const bx=x+c,by=y+r;if(bx<0||bx>=C||by>=R||(by>=0&&board[by][bx]))return true}return false}
+function reset(){t0=performance.now();cor=0;inv=0;boost=0;gt=eyes=null;mslow=1;rev=0;lie=gl=stat=0;ph=null;board=Array.from({length:R},()=>Array(C).fill(0));score=lines=0;level=1;over=false;paused=false;hold=null;bag=null;queue=[pull(),pull(),pull(),pull()];spawn(pull());ui();$('log').innerHTML='';log('mount /dev/blocks ... OK');log('alloc 10x20 grid ... OK')}
+function ui(){$('sc').textContent=score;$('ln').textContent=lines;$('lv').textContent=level;$('hi').textContent=hi}
+function move(dx){if(!hit(cur.m,cur.x+dx,cur.y)){cur.x+=dx;sfx(300,.03,'square',.05)}}
+function turn(inv){const m=cur.t==='O'?cur.m:(inv?rot(rot(rot(cur.m))):rot(cur.m));for(const k of[0,-1,1,-2,2]){if(!hit(m,cur.x+k,cur.y)){cur.m=m;cur.x+=k;sfx(520,.05,'triangle',.07);return}}}
+function drop(){if(!hit(cur.m,cur.x,cur.y+1)){cur.y++;return true}lock();return false}
+function hard(){let n=0;while(!hit(cur.m,cur.x,cur.y+1)){cur.y++;n++}score+=n*2;lock();sfx(110,.12,'sawtooth',.12)}
+function lock(){cur.m.forEach((row,r)=>row.forEach((v,c)=>{if(v&&cur.y+r>=0)board[cur.y+r][cur.x+c]=cur.t}));let n=0;for(let r=R-1;r>=0;r--)if(board[r].every(v=>v)){board.splice(r,1);board.unshift(Array(C).fill(0));n++;r++}
+ log('piece '+cur.t+' LOCKED @ x='+cur.x);
+ if(n){score+=[0,100,300,500,800][n]*level;lines+=n;level=1+(lines/10|0);log(n===4?'!! TETRIS: buffer purged x4':'purge '+n+' row(s)');flash=8;[0,4,7,12].slice(0,n).forEach((s,i)=>setTimeout(()=>sfx(440*2**(s/12),.12,'square',.1),i*70))}else sfx(160,.06,'square',.08);
+ if(score>hi){hi=score;try{localStorage.setItem('hi',hi)}catch(e){}}
+ ui();spawn(queue.shift());queue.push(pull())}
+function doHold(){if(!canHold)return;const t=cur.t;if(hold){spawn(hold)}else{spawn(queue.shift());queue.push(pull())}hold=t;canHold=false;log('swap -> HOLD.BUF');sfx(380,.08,'triangle',.08)}
+function end(){over=true;log('FATAL: stack overflow at 0xDEAD');sfx(80,.6,'sawtooth',.2);scare();showOv(OVT[Math.random()*OVT.length|0],'SEGMENTATION FAULT (core dumped)\nscore='+score+' lines='+lines+' level='+level+'\n\n'+lore(),'[ENTER] play again... if you dare')}
+let flash=0;
+function cell(ctx,x,y,t,s,a){ctx.save();ctx.globalAlpha=a||1;ctx.shadowColor=COL[t];ctx.shadowBlur=8;ctx.strokeStyle=COL[t];ctx.fillStyle=COL[t]+'33';ctx.lineWidth=2;ctx.fillRect(x+1,y+1,s-2,s-2);ctx.strokeRect(x+2,y+2,s-4,s-4);ctx.shadowBlur=0;ctx.fillStyle=COL[t];ctx.font=(s*.34|0)+'px Courier New';ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText(HEX[t],x+s/2,y+s/2);ctx.restore()}
+function mini(ctx,t,ox,oy,s){const m=SH[t],w=m[0].length;m.forEach((row,r)=>row.forEach((v,c)=>{if(v)cell(ctx,ox+(c+(4-w)/2)*s,oy+r*s,t,s)}))}
+function draw(){g.clearRect(0,0,280,560);g.strokeStyle='rgba(57,255,20,.1)';g.lineWidth=1;for(let i=1;i<C;i++){g.beginPath();g.moveTo(i*S,0);g.lineTo(i*S,560);g.stroke()}for(let i=1;i<R;i++){g.beginPath();g.moveTo(0,i*S);g.lineTo(280,i*S);g.stroke()}
+ board.forEach((row,r)=>row.forEach((t,c)=>{if(t)cell(g,c*S,r*S,t,S)}));
+ if(cur&&!over){let gy=cur.y;while(!hit(cur.m,cur.x,gy+1))gy++;if(gl>performance.now())gy=Math.max(cur.y,gy-4);cur.m.forEach((row,r)=>row.forEach((v,c)=>{if(v){cell(g,(cur.x+c)*S,(gy+r)*S,cur.t,S,.2);cell(g,(cur.x+c)*S,(cur.y+r)*S,cur.t,S)}}))}
+ if(flash>0){g.fillStyle='rgba(57,255,20,'+flash*.04+')';g.fillRect(0,0,280,560);flash--}
+ hc.clearRect(0,0,100,80);if(hold)mini(hc,hold,10,10,20);
+ nc.clearRect(0,0,100,200);(lie>performance.now()?lieQ:queue).slice(0,3).forEach((t,i)=>mini(nc,t,10,10+i*62,20));post()}
+function loop(t){const dt=t-last;last=t;if(started&&!paused&&!over&&frz<performance.now()){acc+=dt;const sp=Math.max(70,800-(level-1)*70)*(boost>performance.now()?.3:1);if(acc>sp){acc=0;drop()}}if(board){if(frz>performance.now()){if(Math.random()<.35)slice()}else draw()}requestAnimationFrame(loop)}
+/* CORRUPTION ENGINE */
+let cor=0,inv=0,boost=0,t0=0,gt=null,eyes=null;
+const MSG=['it is behind you','don’t stop playing','HELP ME','I SEE YOU','run. RUN','you are not alone','0xDEAD0000','delete me','he is awake','LOOK BEHIND','play with me','no exit','2 PLAYERS','NOT A GAME','still here','row 21','I AM THE NEXT PIECE','wake up'];
+const ERR=[['tetris.exe','Memory at 0x00000000 could not be "read".'],['SYSTEM','Process "YOU" terminated unexpectedly.'],['???','Why did you wake me up?'],['kernel32.dll','HE is inside the buffer.'],['Windows','Fatal exception 0E at 0028:C0011E36'],['audio.sys','Unknown voice detected on channel 3.'],['tetris.exe','Player 2 has joined the game.'],['SYSTEM','Cannot delete: file is in use by another user.']];
+function popup(){const e=ERR[Math.random()*ERR.length|0],d=document.createElement('div');d.className='dlg';d.style.left=Math.max(0,Math.random()*(innerWidth-250))+'px';d.style.top=(40+Math.random()*Math.max(0,innerHeight-160))+'px';d.innerHTML='<div class="dt">'+e[0]+'<b>x</b></div><p>⛔ '+e[1]+'</p><button>OK</button>';d.onclick=()=>d.remove();document.body.appendChild(d);setTimeout(()=>d.remove(),2800);sfx(220,.15,'square',.1);if(Math.random()<.3)freeze(600+Math.random()*900)}
+function scare(){if(!AC||muted)return;const t=AC.currentTime;[220,233,311,330].forEach(f=>note(f*(.5+Math.random()),t,.5,'sawtooth',.16,AC.destination));noise(t,.5,.3,300)}
+function tickC(){if(!started||over||paused)return;cor=Math.min(1,lines*.025+(performance.now()-t0)/360000);document.body.style.setProperty('--cor',cor);document.title=cor>.7?'help me':'TETRIS.EXE';
+ $('ttl').textContent=cor>.7?'HE_IS_WATCHING.EXE':cor>.3?'C:\\SYS32\\TETRIS.EXE (Not Responding)':'C:\\SYS32\\TETRIS.EXE';
+ if(Math.random()>cor*.9+.05)return;if(Math.random()<.55)return bug2();const e=Math.random()*8|0,n=performance.now();
+ if(e===0){document.body.classList.add('tear');setTimeout(()=>document.body.classList.remove('tear'),400)}
+ else if(e===1){const m=MSG[Math.random()*MSG.length|0];log(m);gt={m,x:Math.random()*110|0,y:60+Math.random()*440|0,u:n+1200}}
+ else if((e===2&&cor>.2)||(e===7&&cor>.15))popup();
+ else if(e===3&&cor>.35){inv=n+4000;log('WARN: input.sys REVERSED')}
+ else if(e===4&&cor>.3){boost=n+3000;log('WARN: gravity.dll OVERCLOCKED')}
+ else if(e===5&&cor>.45){eyes={x:30+Math.random()*190,y:40+Math.random()*480,u:n+1500};scare()}
+ else if(e===6&&cor>.55&&board[0].every(v=>!v)){board.shift();const r=Array(C).fill('Z');r[Math.random()*C|0]=0;board.push(r);if(hit(cur.m,cur.x,cur.y))cur.y--;log('INJECT: foreign row appended');scare()}}
+setInterval(tickC,900);
+function post(){const n=performance.now(),cv=$('g');if(stat>n){g.fillStyle='#fff';for(let i=0;i<150;i++)g.fillRect(Math.random()*280,Math.random()*560,2,2)}if(ph&&ph.u>n)ph.c.forEach(([x,y])=>cell(g,x*S,y*S,'Z',S,.45));if(cor>.12&&Math.random()<cor*.5){for(let i=0,k=1+(cor*4|0);i<k;i++){const y=Math.random()*540|0,h=4+Math.random()*40|0,dx=(Math.random()-.5)*cor*60|0;g.drawImage(cv,0,y,280,h,dx,y,280,h)}}
+ if(gt&&gt.u>n){g.save();g.font='bold 20px Courier New';g.fillStyle='#f00';g.shadowColor='#f00';g.shadowBlur=12;g.fillText(gt.m.toUpperCase(),gt.x,gt.y);g.restore()}
+ if(eyes&&eyes.u>n){g.save();g.fillStyle='#fff';[0,34].forEach(o=>{g.beginPath();g.ellipse(eyes.x+o,eyes.y,11,6,0,0,7);g.fill()});g.fillStyle='#f00';[0,34].forEach(o=>{g.beginPath();g.arc(eyes.x+o+Math.random()*2-1,eyes.y,3,0,7);g.fill()});g.restore()}
+ if(Math.random()<cor*.02){g.fillStyle='#000';g.fillRect(0,0,280,560)}
+ if(Math.random()<cor*.015){g.fillStyle='rgba(255,0,0,.35)';g.fillRect(0,0,280,560)}}
+let frz=0,fcd=0,lie=0,lieQ=[],gl=0,stat=0,ph=null,mslow=1,rev=0;
+function freeze(ms){const n=performance.now();if(frz>n||n<fcd||!started||over)return;frz=n+ms;fcd=n+ms+14000;document.body.classList.add('frz');$('ttl').textContent='C:\\SYS32\\TETRIS.EXE (Not Responding)';log('tetris.exe is not responding...');
+ if(AC&&!muted){master.gain.setTargetAtTime(0,AC.currentTime,.01);scream(ms)}
+ setTimeout(()=>sfx(50,.5,'sawtooth',.3),Math.max(0,ms-30));
+ setTimeout(()=>{document.body.classList.remove('frz');if(AC&&!muted)master.gain.setTargetAtTime(.35,AC.currentTime,.05)},ms)}
+function slice(){const y=Math.random()*540|0,h=4+Math.random()*40|0;g.drawImage($('g'),0,y,280,h,(Math.random()-.5)*50|0,y,280,h)}
+function scream(ms){if(!AC||muted)return;const t=AC.currentTime,d=ms/1000+.1;
+ const ws=AC.createWaveShaper(),k=new Float32Array(256);for(let i=0;i<256;i++)k[i]=Math.tanh((i/128-1)*14);ws.curve=k;
+ const gn=AC.createGain();for(let i=0;i<d/.055;i++)gn.gain.setValueAtTime(i%3===2?.07:.32,t+i*.055);gn.gain.setValueAtTime(.0001,t+d);
+ ws.connect(gn);gn.connect(AC.destination);
+ [0,1,2,3].forEach(j=>{const o=AC.createOscillator(),lfo=AC.createOscillator(),lg=AC.createGain();o.type=j%2?'sawtooth':'square';
+  o.frequency.setValueAtTime(380+j*97,t);o.frequency.linearRampToValueAtTime(950+j*230+Math.random()*350,t+d);o.detune.value=(Math.random()-.5)*80;
+  lfo.frequency.value=37+j*13;lg.gain.value=220;lfo.connect(lg);lg.connect(o.frequency);lfo.start(t);lfo.stop(t+d);o.connect(ws);o.start(t);o.stop(t+d)})}
+function bug2(){const n=performance.now(),b=document.body.classList,e=1+(Math.random()*11|0),T=(c,ms)=>{b.add(c);setTimeout(()=>b.remove(c),ms)};
+ if(e===1&&cor>.25){lie=n+5000;lieQ=[0,0,0].map(()=>Object.keys(SH)[Math.random()*7|0]);log('queue.dat is lying to you')}
+ else if(e===2&&cor>.3){gl=n+5000;log('ghost.piece is not where you think')}
+ else if(e===3&&cor>.35){const K=Object.keys(SH),t=K[Math.random()*7|0],m=SH[t].map(r=>[...r]);if(!hit(m,cur.x,cur.y)){cur.t=t;cur.m=m;log('piece.type CORRUPTED -> '+t)}}
+ else if(e===4&&cor>.4){T('blk',700+Math.random()*900);log('display.sys OFFLINE (keep playing)')}
+ else if(e===5&&cor>.15){stat=n+1000+Math.random()*1000;sfx(3000,.4,'sawtooth',.04)}
+ else if(e===6&&cor>.3){ph={u:n+1800,c:[0,0,0,0,0].map(()=>[Math.random()*C|0,Math.random()*9|0])};log('phantom blocks detected')}
+ else if(e===7&&cor>.2){const v=['666','NaN','0xDEAD','-1','HELP'];$('sc').textContent=v[Math.random()*v.length|0];$('lv').textContent='???';setTimeout(ui,1500);log('stats.db unreadable')}
+ else if(e===8&&cor>.25){const hh=new Date().toTimeString().slice(0,5);log('it is '+hh+'. he knows you are still here');gt={m:'IT IS '+hh,x:40,y:280,u:n+1800}}
+ else if(e===9&&cor>.25){mslow=2.2;log('tempo.sys DESYNC');setTimeout(()=>mslow=1,4000+Math.random()*3000)}
+ else if(e===10&&cor>.3&&AC&&!muted){master.gain.setTargetAtTime(0,AC.currentTime,.02);log('audio.sys: SIGNAL LOST');setTimeout(()=>{if(AC&&!muted)master.gain.setTargetAtTime(.35,AC.currentTime,.1)},2500+Math.random()*3000)}
+ else if(e===11&&cor>.25){rev=n+6000+Math.random()*5000;log('audio.sys: PLAYBACK REVERSED')}}
+const OVT=['I SEE YOU','HE WAS HERE','NO EXIT','CORE DUMPED','WAKE UP'];
+const OUT=['He counted every block. # points. He wants more.','# points. That number is carved into a wall in a room you cannot see.','Score # saved to a file you did not create.','# ... why did you stop?'];
+const LORE=['LOG 01 // The falling blocks were never random. Each one is a day we lost.',
+'LOG 02 // The tester said the music started before he pressed play. We deleted the audio. It was still there.',
+'LOG 03 // Line 4096 of tetris.c is not ours. It reads: while(1) watch(player);',
+'LOG 04 // He never finishes the stack. He only wants you to keep stacking. Something is being built.',
+'LOG 05 // The office lights died at 3:33. The monitor still showed the grid. Someone was already playing.',
+'LOG 06 // Nobody remembers hiring the programmer who wrote the gravity module. His badge photo is a black square.',
+'LOG 07 // The ghost piece is not a preview. It is where he is standing.',
+'LOG 08 // High score file corrupted. Entry #1 is named \u201cBEHIND_YOU\u201d. Score: infinite.',
+'LOG 09 // Every cleared line frees one of them. Please stop clearing lines.',
+'LOG 10 // The next queue shows what comes next. The hold buffer shows what you left behind.',
+'LOG 11 // Do not close the tab. Closing the tab is how he gets out.',
+'LOG 12 // The janitor says the arcade cabinet was unplugged for years. The screen was still lit.',
+'LOG 13 // We shipped build 0.9. Every support ticket says the same thing: \u201cit plays itself at night.\u201d',
+'LOG 14 // The grid is 10 wide. There are 11 of us in the team photo. Count again.',
+'LOG 15 // Frame time: 16.6 ms. Our last frame took nine hours.',
+'LOG 16 // He learns from how you rotate. He knows when you hesitate.',
+'LOG 17 // The I-piece is not a piece. It is a door seen from the side.',
+'LOG 18 // Testers who passed 9000 points stopped answering their phones. We kept their save files.',
+'LOG 19 // The kernel log has a line nobody wrote: player 1 connected. player 2 connected.',
+'LOG 20 // Pause is not a pause. It only means he can look at you without being looked at.',
+'LOG 21 // The sound card ran with no speaker attached. The recording still has breathing.',
+'LOG 22 // Row 20 is the floor. Row 21 should not exist. Something is standing in it.',
+'LOG 23 // Do not rotate the piece to the left. Rotating left is how it turns around.',
+'LOG 24 // We removed the game over screen. He put it back.',
+'LOG 25 // He is not trying to stop you. He is trying to get out. Every line you clear opens the door a little more.',
+'LOG 26 // End of file. Thanks for playing. He will remember you.'];
+function lore(){let seen=[];try{seen=JSON.parse(localStorage.getItem('lore')||'[]')}catch(e){}
+ const pool=LORE.map((_,i)=>i).filter(i=>!seen.includes(i));let i;
+ if(pool.length){i=pool[Math.random()*pool.length|0];seen.push(i);try{localStorage.setItem('lore',JSON.stringify(seen))}catch(e){}}else i=Math.random()*LORE.length|0;
+ return '[RECOVERED FILE '+seen.length+'/'+LORE.length+']\n'+LORE[i]+'\n\n'+OUT[Math.random()*OUT.length|0].replace('#',score)}
+/* AUDIO */
+let AC,master,muted=false,step=0,nextT=0,timer;
+function sfx(f,d,type,v){if(!AC||muted)return;const o=AC.createOscillator(),gn=AC.createGain();o.type=type;o.frequency.value=f;gn.gain.setValueAtTime(v,AC.currentTime);gn.gain.exponentialRampToValueAtTime(.0001,AC.currentTime+d);o.connect(gn);gn.connect(AC.destination);o.start();o.stop(AC.currentTime+d)}
+const mf=n=>440*2**((n-69)/12);
+const CH=[[57,60,64],[53,57,60],[48,52,55],[55,59,62]];
+function note(f,t,d,type,v,dest){const o=AC.createOscillator(),gn=AC.createGain();o.type=type;o.frequency.value=f;o.detune.value=(Math.random()-.5)*cor*cor*500;if(rev>performance.now()){gn.gain.setValueAtTime(.0001,t);gn.gain.exponentialRampToValueAtTime(v,t+d)}else{gn.gain.setValueAtTime(v,t);gn.gain.exponentialRampToValueAtTime(.0001,t+d)}o.connect(gn);gn.connect(dest);o.start(t);o.stop(t+d+.02)}
+function noise(t,d,v,hp){const b=AC.createBuffer(1,AC.sampleRate*d,AC.sampleRate),a=b.getChannelData(0);for(let i=0;i<a.length;i++)a[i]=Math.random()*2-1;const s=AC.createBufferSource(),f=AC.createBiquadFilter(),gn=AC.createGain();s.buffer=b;f.type='highpass';f.frequency.value=hp;gn.gain.setValueAtTime(v,t);gn.gain.exponentialRampToValueAtTime(.0001,t+d);s.connect(f);f.connect(gn);gn.connect(master);s.start(t)}
+function sched(){const sd=60/(150-cor*70)/4*mslow;while(nextT<AC.currentTime+.3){const bar=(step>>4)%4,s=step%16,ch=CH[bar];
+ if(s%4===0){const o=AC.createOscillator(),gn=AC.createGain();o.frequency.setValueAtTime(130,nextT);o.frequency.exponentialRampToValueAtTime(40,nextT+.12);gn.gain.setValueAtTime(.5,nextT);gn.gain.exponentialRampToValueAtTime(.001,nextT+.15);o.connect(gn);gn.connect(master);o.start(nextT);o.stop(nextT+.16)}
+ if(s%2===1)noise(nextT,.04,.12,7000);if(s===4||s===12)noise(nextT,.12,.2,1800);
+ if(s%2===0||s%8===7)note(mf(ch[0]-24),nextT,sd*1.6,'sawtooth',.16,master);
+ note(mf(ch[(rev>performance.now()?[2,1,2,0,1,2,1,0]:[0,1,2,1,0,2,1,2])[s%8]]+12*(s>=8?1:0)),nextT,sd*.9,'square',.07,master);
+ if(s===0||s===8)note(mf(ch[2]+12),nextT,sd*7,'triangle',.06,master);
+ if(s===0&&cor>.3)note(mf(ch[0]-36)*(1+cor*.06),nextT,sd*16,'sawtooth',.12*cor,master);nextT+=sd;step++}}
+function startAudio(){if(AC)return;AC=new(window.AudioContext||window.webkitAudioContext)();master=AC.createGain();master.gain.value=.35;master.connect(AC.destination);nextT=AC.currentTime+.05;timer=setInterval(sched,80)}
+function setMute(){muted=!muted;if(master)master.gain.value=muted?0:.35;log(muted?'audio.sys -> OFF':'audio.sys -> ON')}
+/* OVERLAY / BOOT */
+function showOv(t,body,pr){$('ov').style.display='flex';$('boot').textContent=t+'\n\n'+body;$('prompt').textContent=pr}
+function bootSeq(){const L=['BIOS v6.66  (c) NEON CORP','CPU: 8x CYBER-CORE ........ OK','RAM: 640K ................. OK','LOADING TETRIS.EXE ....... OK','C:\\> run tetris --neon --sound=on','','ALERT: gravity module unstable','WARNING: you are not alone'];let i=0;$('boot').textContent='';const iv=setInterval(()=>{$('boot').textContent+=L[i++]+'\n';if(i>=L.length){clearInterval(iv);$('prompt').textContent='[ENTER / TOCAR] EJECUTAR'}},260)}
+function begin(){startAudio();if(AC.state==='suspended')AC.resume();$('ov').style.display='none';started=true;reset();log('tetris.exe running...')}
+function act(a){if(!started||over||frz>performance.now())return;if(a==='pause'){paused=!paused;log(paused?'SIGSTOP':'SIGCONT');return}if(paused)return;if(inv>performance.now()){if(a==='l')a='r';else if(a==='r')a='l'}({l:()=>move(-1),r:()=>move(1),rot:()=>turn(false),rotInv:()=>turn(true),d:()=>{if(drop())score++;ui()},hd:hard,hold:doHold})[a]()}
+document.addEventListener('keydown',e=>{const k=e.key;if(k==='Enter'&&(!started||over)){begin();e.preventDefault();return}if(k==='m'||k==='M'){setMute();return}
+ const map={ArrowLeft:'l',ArrowRight:'r',ArrowUp:'rot',x:'rot',X:'rot',z:'rotInv',Z:'rotInv',ArrowDown:'d',' ':'hd',c:'hold',C:'hold',p:'pause',P:'pause'};if(map[k]){e.preventDefault();act(map[k])}});
+$('ov').addEventListener('click',()=>{if(!started||over)begin()});
+document.querySelectorAll('.tc button').forEach(b=>b.addEventListener('click',()=>act(b.dataset.a)));
+setInterval(()=>{const d=new Date();$('clk').textContent=d.toLocaleTimeString('es-ES')+'  [ _ ] [ X ]'},1000);
+board=Array.from({length:R},()=>Array(C).fill(0));queue=['I','T','L'];hold=null;bootSeq();requestAnimationFrame(loop);
+</script>
+</body>
+</html>
